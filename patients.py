@@ -1,3 +1,4 @@
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -109,24 +110,28 @@ class PatientsPage:
     
     # ------------------- Database actions -------------------
     def load_patients(self):
-        try:
-            patients = self.app.db.get_all_patients()
-            self.patients_tree.delete(*self.patients_tree.get_children())
+        for row in self.patients_tree.get_children():
+            self.patients_tree.delete(row)
+
+        patients = self.db.get_all_patients()
+        if patients:
             for patient in patients:
-                self.patients_tree.insert('', 'end', values=(
-                    patient.get('id', ''),
-                    patient.get('full_name', ''),
-                    patient.get('age', ''),
-                    patient.get('gender', ''),
-                    patient.get('phone', ''),
-                    patient.get('email', ''),
-                    patient.get('address', ''),
-                    patient.get('medical_history', ''),
-                    patient.get('emergency_contact', ''),
-                    patient.get('emergency_phone', '')
-                ))
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load patients: {str(e)}")
+                self.tree.insert("", "end", values=patient)
+
+        self.patients_tree.delete(*self.patients_tree.get_children())
+        for patient in patients:
+            self.patients_tree.insert('', 'end', values=(
+                patient.get('id', ''),
+                patient.get('full_name', ''),
+                patient.get('age', ''),
+                patient.get('gender', ''),
+                patient.get('phone', ''),
+                patient.get('email', ''),
+                patient.get('address', ''),
+                patient.get('medical_history', ''),
+                patient.get('emergency_contact', ''),
+                patient.get('emergency_phone', '')
+            ))
     
     def search_patients(self):
         search_term = self.search_entry.get().strip()
@@ -266,33 +271,24 @@ class PatientsPage:
         cancel_btn.pack(side="left", ipady=8, ipadx=20)
 
     # ------------------- Save Patient -------------------
-    def save_patient(self, window, patient_data=None):
-        """Save patient data"""
-        try:
-            data = {}
-            for field, widget in self.form_fields.items():
-                if isinstance(widget, tk.Text):
-                    data[field] = widget.get("1.0", tk.END).strip()
-                elif isinstance(widget, ttk.Combobox):
-                    data[field] = widget.get().strip()
-                else:
-                    data[field] = widget.get().strip()
+def save_patient(self, form_window, patient_data=None):
+    """Save or update a patient record"""
+    try:
+        # Collect data from form entries
+        data = {field: entry.get() for field, entry in self.entries.items()}
 
-            # Validation
-            for field in ['full_name', 'age', 'gender', 'phone']:
-                if not data[field]:
-                    messagebox.showerror("Error", f"Please fill in {field.replace('_', ' ').title()}")
-                    return
+        if patient_data is not None:  # Update existing patient
+            success = self.db.update_patient(data)
+        else:  # Add new patient
+            success = self.db.add_patient(data)
 
-            if patient_data:  # update
-                data['id'] = patient_data[0]
-                self.app.db.update_patient(data)
-                messagebox.showinfo("Success", "Patient updated successfully")
-            else:  # add new
-                self.app.db.add_patient(data)
-                messagebox.showinfo("Success", "Patient added successfully")
+        if success:
+            messagebox.showinfo("Success", "Patient saved successfully!")
+            form_window.destroy()
+            self.load_patients()  # Refresh table after save
+        else:
+            messagebox.showerror("Error", "Failed to save patient.")
 
-            window.destroy()
-            self.load_patients()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save patient: {str(e)}")
+    except Exception as e:
+        messagebox.showerror("Error", f"Unexpected error: {e}")
+

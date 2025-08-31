@@ -325,3 +325,85 @@ def close(self):
     if self.connection:
         self.connection.close()
     print("Database connection closed")
+
+          # ----------------------
+    # ✅ Doctor CRUD METHODS
+    # ----------------------
+    def get_all_doctors(self):
+        """Fetch all doctors"""
+        try:
+            self.cursor.execute("SELECT * FROM doctors ORDER BY created_at DESC")
+            return self.cursor.fetchall()
+        except Error as e:
+            print(f"Error fetching doctors: {e}")
+            return []
+
+    def search_doctors(self, term):
+        """Search doctors by name or specialization"""
+        try:
+            query = """SELECT * FROM doctors 
+                       WHERE first_name LIKE %s OR last_name LIKE %s OR specialization LIKE %s"""
+            self.cursor.execute(query, (f"%{term}%", f"%{term}%", f"%{term}%"))
+            return self.cursor.fetchall()
+        except Error as e:
+            print(f"Error searching doctors: {e}")
+            return []
+
+    def add_doctor(self, data):
+        """Insert new doctor"""
+        try:
+            query = """
+            INSERT INTO doctors (doctor_id, first_name, last_name, specialization, phone, email, schedule)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """
+            # auto-generate doctor_id
+            doctor_id = f"DOC{data['first_name'][:2].upper()}{data['last_name'][:2].upper()}"
+            values = (
+                doctor_id,
+                data['first_name'],
+                data['last_name'],
+                data['specialization'],
+                data['phone'],
+                data['email'],
+                data['schedule'],
+            )
+            self.cursor.execute(query, values)
+            self.connection.commit()
+            return True
+        except Error as e:
+            print(f"Error adding doctor: {e}")
+            return False
+
+    def update_doctor(self, data):
+        """Update existing doctor"""
+        try:
+            query = """
+            UPDATE doctors SET first_name=%s, last_name=%s, specialization=%s,
+                               phone=%s, email=%s, schedule=%s
+            WHERE id=%s
+            """
+            values = (
+                data['first_name'],
+                data['last_name'],
+                data['specialization'],
+                data['phone'],
+                data['email'],
+                data['schedule'],
+                data['id'],
+            )
+            self.cursor.execute(query, values)
+            self.connection.commit()
+            return True
+        except Error as e:
+            print(f"Error updating doctor: {e}")
+            return False
+
+    def delete_doctor(self, doctor_id):
+        """Delete doctor by id"""
+        try:
+            self.cursor.execute("DELETE FROM doctors WHERE id=%s", (doctor_id,))
+            self.connection.commit()
+            return True
+        except Error as e:
+            print(f"Error deleting doctor: {e}")
+            return False
