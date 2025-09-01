@@ -16,7 +16,7 @@ from doctors import DoctorsPage
 from appointments import AppointmentsPage
 from staff import StaffPage
 from db import Database
-from admin import AdminPage  # Added import for AdminPage
+from admin import AdminPage  
 
 class HealthNetApp:
     def __init__(self):
