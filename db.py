@@ -5,56 +5,47 @@ MySQL (XAMPP) Integration
 import mysql.connector
 from mysql.connector import Error
 import hashlib
+from datetime import datetime, date
 
 class Database:
     def __init__(self):
         self.connection = None
         self.cursor = None
         
-        # Database configuration for XAMPP
         self.config = {
             'host': '127.0.0.1',
             'port': 3306,
             'user': 'root',
-            'password': '',  # Default XAMPP password is empty
+            'password': '',
             'database': 'healthnet_db'
         }
     
     def connect(self):
-        """Connect to MySQL database"""
         try:
-            # First connect without database to create it if needed
             temp_config = self.config.copy()
             temp_config.pop('database')
-            
             temp_connection = mysql.connector.connect(**temp_config)
             temp_cursor = temp_connection.cursor()
-            
-            # Create database if it doesn't exist
             temp_cursor.execute("CREATE DATABASE IF NOT EXISTS healthnet_db")
             temp_cursor.close()
             temp_connection.close()
             
-            # Now connect to the database
             self.connection = mysql.connector.connect(**self.config)
             self.cursor = self.connection.cursor(dictionary=True)
             print("Connected to MySQL database successfully")
-            
         except Error as e:
             print(f"Error connecting to MySQL: {e}")
             return False
         return True
     
     def create_tables(self):
-        """Create all necessary tables"""
         try:
-            # Users table
             users_table = """
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 username VARCHAR(50) UNIQUE NOT NULL,
                 password VARCHAR(255) NOT NULL,
-                role ENUM('Admin', 'Doctor', 'Nurse', 'Lab', 'Patient') NOT NULL,
+                role ENUM('Admin', 'Doctor', 'Nurse', 'Patient') NOT NULL,
                 full_name VARCHAR(100) NOT NULL,
                 email VARCHAR(100),
                 phone VARCHAR(20),
@@ -62,7 +53,6 @@ class Database:
             )
             """
             
-            # Patients table
             patients_table = """
             CREATE TABLE IF NOT EXISTS patients (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -70,6 +60,7 @@ class Database:
                 patient_id VARCHAR(20) UNIQUE NOT NULL,
                 first_name VARCHAR(50) NOT NULL,
                 last_name VARCHAR(50) NOT NULL,
+                age INT,
                 date_of_birth DATE,
                 gender ENUM('Male', 'Female', 'Other'),
                 phone VARCHAR(20),
@@ -77,127 +68,63 @@ class Database:
                 address TEXT,
                 medical_history TEXT,
                 emergency_contact VARCHAR(100),
-                emergency_phone VARCHAR(20),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
             """
-            
             # Doctors table
             doctors_table = """
-            CREATE TABLE IF NOT EXISTS doctors (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT,
-                doctor_id VARCHAR(20) UNIQUE NOT NULL,
-                first_name VARCHAR(50) NOT NULL,
-                last_name VARCHAR(50) NOT NULL,
-                specialization VARCHAR(100),
-                phone VARCHAR(20),
-                email VARCHAR(100),
-                schedule TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            )
-            """
-            
-            # Staff table
-            staff_table = """
-            CREATE TABLE IF NOT EXISTS staff (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT,
-                staff_id VARCHAR(20) UNIQUE NOT NULL,
-                first_name VARCHAR(50) NOT NULL,
-                last_name VARCHAR(50) NOT NULL,
-                role VARCHAR(50),
-                department VARCHAR(100),
-                phone VARCHAR(20),
-                email VARCHAR(100),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            )
-            """
-            
-            # Appointments table
-            appointments_table = """
-            CREATE TABLE IF NOT EXISTS appointments (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                patient_id INT,
-                doctor_id INT,
-                appointment_date DATE NOT NULL,
-                appointment_time TIME NOT NULL,
-                reason TEXT,
-                status ENUM('Scheduled', 'Completed', 'Cancelled') DEFAULT 'Scheduled',
-                notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (patient_id) REFERENCES patients(id),
-                FOREIGN KEY (doctor_id) REFERENCES doctors(id)
-            )
-            """
-            
-            # Execute table creation
-            tables = [users_table, patients_table, doctors_table, staff_table, appointments_table]
-            for table in tables:
-                self.cursor.execute(table)
-            
+    CREATE TABLE IF NOT EXISTS doctors (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        first_name VARCHAR(100) NOT NULL,
+        last_name VARCHAR(100) NOT NULL,
+        specialization VARCHAR(100) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        email VARCHAR(150) NOT NULL,
+        schedule TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+          """
+            self.cursor.execute(users_table)
+            self.cursor.execute(patients_table)
+            self.cursor.execute(doctors_table)
             self.connection.commit()
-            
-            # Create default admin user if not exists
             self.create_default_admin()
-            
             print("Database tables created successfully")
-            
         except Error as e:
             print(f"Error creating tables: {e}")
     
     def create_default_admin(self):
-        """Create default admin user"""
         try:
-            # Check if admin exists
             self.cursor.execute("SELECT * FROM users WHERE username = 'admin'")
             if self.cursor.fetchone():
                 return
-            
-            # Create admin user
             password_hash = hashlib.sha256('admin123'.encode()).hexdigest()
-            admin_data = {
-                'username': 'admin',
-                'password': password_hash,
-                'role': 'Admin',
-                'full_name': 'System Administrator',
-                'email': 'admin@healthnet.com',
-                'phone': '1234567890'
-            }
-            
             query = """
             INSERT INTO users (username, password, role, full_name, email, phone)
-            VALUES (%(username)s, %(password)s, %(role)s, %(full_name)s, %(email)s, %(phone)s)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """
-            
-            self.cursor.execute(query, admin_data)
+            self.cursor.execute(query, ('admin', password_hash, 'Admin', 'System Administrator',
+                                        'admin@healthnet.com', '1234567890'))
             self.connection.commit()
             print("Default admin user created: admin/admin123")
-            
         except Error as e:
             print(f"Error creating default admin: {e}")
     
     def hash_password(self, password):
-        """Hash password using SHA256"""
         return hashlib.sha256(password.encode()).hexdigest()
     
     def authenticate_user(self, username, password):
-        """Authenticate user login"""
         try:
             password_hash = self.hash_password(password)
             query = "SELECT * FROM users WHERE username = %s AND password = %s"
             self.cursor.execute(query, (username, password_hash))
-            user = self.cursor.fetchone()
-            return user
+            return self.cursor.fetchone()
         except Error as e:
             print(f"Authentication error: {e}")
             return None
     
     def create_user(self, username, password, role, full_name, email=None, phone=None):
-        """Create new user"""
         try:
             password_hash = self.hash_password(password)
             query = """
@@ -210,200 +137,208 @@ class Database:
         except Error as e:
             print(f"Error creating user: {e}")
             return False
-    
-    def execute_query(self, query, params=None):
-        """Execute custom query"""
-        try:
-            if params:
-                self.cursor.execute(query, params)
-            else:
-                self.cursor.execute(query)
-            
-            if query.strip().upper().startswith('SELECT'):
-                return self.cursor.fetchall()
-            else:
-                self.connection.commit()
-                return True
-        except Error as e:
-            print(f"Query execution error: {e}")
-            return None
 
     # ----------------------
-# ✅ PATIENT CRUD METHODS
-# ----------------------
-def add_patient(self, data):
-    """Insert new patient"""
-    try:
-        query = """
-        INSERT INTO patients (
-            user_id, patient_id, first_name, last_name, date_of_birth, gender, phone, email, address,
-            medical_history, emergency_contact, emergency_phone
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        values = (
-            data.get("user_id"),
-            data.get("patient_id"),
-            data.get("first_name"),
-            data.get("last_name"),
-            data.get("date_of_birth"),
-            data.get("gender"),
-            data.get("phone"),
-            data.get("email"),
-            data.get("address"),
-            data.get("medical_history"),
-            data.get("emergency_contact"),
-            data.get("emergency_phone"),
-        )
-        self.cursor.execute(query, values)
-        self.connection.commit()
-        return True
-    except Error as e:
-        print(f"Error adding patient: {e}")
-        return False
-
-
-def get_all_patients(self):
-    """Fetch all patients"""
-    try:
-        self.cursor.execute("""
-            SELECT id, user_id, patient_id, first_name, last_name, date_of_birth, gender, phone, email, address,
-                   medical_history, emergency_contact, emergency_phone, created_at
-            FROM patients
-            ORDER BY created_at DESC
-        """)
-        return self.cursor.fetchall()
-    except Error as e:
-        print(f"Error fetching patients: {e}")
-        return []
-
-
-def update_patient(self, patient_data):
-    """Update an existing patient"""
-    try:
-        query = """
-        UPDATE patients SET 
-            first_name=%s, last_name=%s, date_of_birth=%s, gender=%s, phone=%s, email=%s,
-            address=%s, medical_history=%s, emergency_contact=%s, emergency_phone=%s
-        WHERE patient_id=%s
-        """
-        values = (
-            patient_data.get("first_name"),
-            patient_data.get("last_name"),
-            patient_data.get("date_of_birth"),
-            patient_data.get("gender"),
-            patient_data.get("phone"),
-            patient_data.get("email"),
-            patient_data.get("address"),
-            patient_data.get("medical_history"),
-            patient_data.get("emergency_contact"),
-            patient_data.get("emergency_phone"),
-            patient_data.get("patient_id"),
-        )
-        self.cursor.execute(query, values)
-        self.connection.commit()
-        return True
-    except Error as e:
-        print(f"Error updating patient: {e}")
-        return False
-
-
-def delete_patient(self, patient_id):
-    """Delete patient record"""
-    try:
-        self.cursor.execute("DELETE FROM patients WHERE patient_id = %s", (patient_id,))
-        self.connection.commit()
-        return True
-    except Error as e:
-        print(f"Error deleting patient: {e}")
-        return False
-
-
-def close(self):
-    """Close database connection"""
-    if self.cursor:
-        self.cursor.close()
-    if self.connection:
-        self.connection.close()
-    print("Database connection closed")
-
-          # ----------------------
-    # ✅ Doctor CRUD METHODS
+    # ✅ PATIENT CRUD METHODS
     # ----------------------
-    def get_all_doctors(self):
-        """Fetch all doctors"""
+    def add_patient(self, data):
+        """Insert new patient"""
         try:
-            self.cursor.execute("SELECT * FROM doctors ORDER BY created_at DESC")
-            return self.cursor.fetchall()
-        except Error as e:
-            print(f"Error fetching doctors: {e}")
-            return []
+            # Calculate age from DOB
+            dob = data.get("date_of_birth")
+            if dob:
+                birth_date = datetime.strptime(dob, "%Y-%m-%d").date()
+                today = date.today()
+                data['age'] = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+            else:
+                data['age'] = None
 
-    def search_doctors(self, term):
-        """Search doctors by name or specialization"""
-        try:
-            query = """SELECT * FROM doctors 
-                       WHERE first_name LIKE %s OR last_name LIKE %s OR specialization LIKE %s"""
-            self.cursor.execute(query, (f"%{term}%", f"%{term}%", f"%{term}%"))
-            return self.cursor.fetchall()
-        except Error as e:
-            print(f"Error searching doctors: {e}")
-            return []
-
-    def add_doctor(self, data):
-        """Insert new doctor"""
-        try:
             query = """
-            INSERT INTO doctors (doctor_id, first_name, last_name, specialization, phone, email, schedule)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO patients (
+                user_id, patient_id, first_name, last_name, age, date_of_birth, gender, phone, email, address,
+                medical_history, emergency_contact
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
-            # auto-generate doctor_id
-            doctor_id = f"DOC{data['first_name'][:2].upper()}{data['last_name'][:2].upper()}"
             values = (
-                doctor_id,
-                data['first_name'],
-                data['last_name'],
-                data['specialization'],
-                data['phone'],
-                data['email'],
-                data['schedule'],
+                data.get("user_id"),
+                data.get("patient_id"),
+                data.get("first_name"),
+                data.get("last_name"),
+                data.get("age"),
+                data.get("date_of_birth"),
+                data.get("gender"),
+                data.get("phone"),
+                data.get("email"),
+                data.get("address"),
+                data.get("medical_history"),
+                data.get("emergency_contact"),
             )
             self.cursor.execute(query, values)
             self.connection.commit()
             return True
         except Error as e:
-            print(f"Error adding doctor: {e}")
+            print(f"Error adding patient: {e}")
             return False
 
-    def update_doctor(self, data):
-        """Update existing doctor"""
+    def get_all_patients(self):
         try:
+            self.cursor.execute("""
+                SELECT id, patient_id, first_name, last_name, age, date_of_birth, gender, phone, email, address,
+                       medical_history, emergency_contact, created_at
+                FROM patients
+                ORDER BY created_at DESC
+            """)
+            return self.cursor.fetchall()
+        except Error as e:
+            print(f"Error fetching patients: {e}")
+            return []
+
+    def update_patient(self, data):
+        """Update existing patient"""
+        try:
+            # Calculate age from DOB
+            dob = data.get("date_of_birth")
+            if dob:
+                birth_date = datetime.strptime(dob, "%Y-%m-%d").date()
+                today = date.today()
+                data['age'] = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+            else:
+                data['age'] = None
+
             query = """
-            UPDATE doctors SET first_name=%s, last_name=%s, specialization=%s,
-                               phone=%s, email=%s, schedule=%s
-            WHERE id=%s
+            UPDATE patients SET 
+                first_name=%s, last_name=%s, age=%s, date_of_birth=%s, gender=%s, phone=%s, email=%s,
+                address=%s, medical_history=%s, emergency_contact=%s
+            WHERE patient_id=%s
             """
             values = (
-                data['first_name'],
-                data['last_name'],
-                data['specialization'],
-                data['phone'],
-                data['email'],
-                data['schedule'],
-                data['id'],
+                data.get("first_name"),
+                data.get("last_name"),
+                data.get("age"),
+                data.get("date_of_birth"),
+                data.get("gender"),
+                data.get("phone"),
+                data.get("email"),
+                data.get("address"),
+                data.get("medical_history"),
+                data.get("emergency_contact"),
+                data.get("patient_id")
             )
             self.cursor.execute(query, values)
             self.connection.commit()
             return True
         except Error as e:
-            print(f"Error updating doctor: {e}")
+            print(f"Error updating patient: {e}")
             return False
 
-    def delete_doctor(self, doctor_id):
-        """Delete doctor by id"""
+    def delete_patient(self, patient_id):
         try:
-            self.cursor.execute("DELETE FROM doctors WHERE id=%s", (doctor_id,))
+            self.cursor.execute("DELETE FROM patients WHERE patient_id = %s", (patient_id,))
             self.connection.commit()
             return True
         except Error as e:
-            print(f"Error deleting doctor: {e}")
+            print(f"Error deleting patient: {e}")
             return False
+        
+            # ----------------------
+    # ✅ DASHBOARD STATS METHODS
+    # ----------------------
+    def count_patients(self):
+        try:
+            self.cursor.execute("SELECT COUNT(*) as count FROM patients")
+            result = self.cursor.fetchone()
+            return result["count"] if result else 0
+        except Error as e:
+            print("Error counting patients:", e)
+            return 0
+
+    def count_doctors(self):
+        try:
+            self.cursor.execute("SELECT COUNT(*) as count FROM doctors")
+            result = self.cursor.fetchone()
+            return result["count"] if result else 0
+        except Error as e:
+            print("Error counting doctors:", e)
+            return 0
+
+    def count_staff(self):
+        try:
+            self.cursor.execute("SELECT COUNT(*) as count FROM staff")
+            result = self.cursor.fetchone()
+            return result["count"] if result else 0
+        except Error as e:
+            print("Error counting staff:", e)
+            return 0
+
+    def count_todays_appointments(self):
+        try:
+            self.cursor.execute(
+                "SELECT COUNT(*) as count FROM appointments WHERE DATE(appointment_date) = CURDATE()"
+            )
+            result = self.cursor.fetchone()
+            return result["count"] if result else 0
+        except Error as e:
+            print("Error counting today's appointments:", e)
+            return 0
+        
+        # ---------------- DOCTORS ----------------
+def add_doctor(self, data):
+    query = """
+        INSERT INTO doctors (first_name, last_name, specialization, phone, email, schedule)
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """
+    values = (
+        data.get("first_name"),
+        data.get("last_name"),
+        data.get("specialization"),
+        data.get("phone"),
+        data.get("email"),
+        data.get("schedule"),
+    )
+    self.cursor.execute(query, values)
+    self.connection.commit()
+    return self.cursor.lastrowid
+
+def update_doctor(self, data):
+    query = """
+        UPDATE doctors 
+        SET first_name=%s, last_name=%s, specialization=%s, phone=%s, email=%s, schedule=%s
+        WHERE id=%s
+    """
+    values = (
+        data.get("first_name"),
+        data.get("last_name"),
+        data.get("specialization"),
+        data.get("phone"),
+        data.get("email"),
+        data.get("schedule"),
+        data.get("id"),
+    )
+    self.cursor.execute(query, values)
+    self.connection.commit()
+
+def delete_doctor(self, doctor_id):
+    query = "DELETE FROM doctors WHERE id=%s"
+    self.cursor.execute(query, (doctor_id,))
+    self.connection.commit()
+
+def get_all_doctors(self):
+    self.cursor.execute("SELECT * FROM doctors ORDER BY created_at DESC")
+    return self.cursor.fetchall()
+
+def search_doctors(self, term):
+    like_term = f"%{term}%"
+    query = """
+        SELECT * FROM doctors
+        WHERE first_name LIKE %s OR last_name LIKE %s OR specialization LIKE %s OR phone LIKE %s OR email LIKE %s
+    """
+    self.cursor.execute(query, (like_term, like_term, like_term, like_term, like_term))
+    return self.cursor.fetchall()
+
+
+    def close(self):
+        if self.cursor:
+            self.cursor.close()
+        if self.connection:
+            self.connection.close()
+        print("Database connection closed")
