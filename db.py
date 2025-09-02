@@ -85,9 +85,45 @@ class Database:
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
           """
+
+          # Staff Table
+            staff_table = """
+           CREATE TABLE IF NOT EXISTS staff (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            full_name VARCHAR(255) NOT NULL,
+            role VARCHAR(100) NOT NULL,
+            department VARCHAR(100),
+            phone VARCHAR(20),
+            email VARCHAR(150),
+            hire_date DATE,
+            salary DECIMAL(10,2),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+            """
+
+             # Appointment Table
+            appointments_table = """
+               CREATE TABLE IF NOT EXISTS appointments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    patient_id INT NOT NULL,
+    doctor_id INT NOT NULL,
+    appointment_date DATE NOT NULL,
+    appointment_time TIME NOT NULL,
+    status ENUM('Scheduled','Confirmed','Completed','Cancelled') DEFAULT 'Scheduled',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(id),
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+)
+"""
+
+
             self.cursor.execute(users_table)
             self.cursor.execute(patients_table)
             self.cursor.execute(doctors_table)
+            self.cursor.execute(staff_table)
+            self.cursor.execute(appointments_table)
             self.connection.commit()
             self.create_default_admin()
             print("Database tables created successfully")
@@ -282,59 +318,210 @@ class Database:
             return 0
         
         # ---------------- DOCTORS ----------------
-def add_doctor(self, data):
-    query = """
-        INSERT INTO doctors (first_name, last_name, specialization, phone, email, schedule)
-        VALUES (%s, %s, %s, %s, %s, %s)
-    """
-    values = (
-        data.get("first_name"),
-        data.get("last_name"),
-        data.get("specialization"),
-        data.get("phone"),
-        data.get("email"),
-        data.get("schedule"),
-    )
-    self.cursor.execute(query, values)
-    self.connection.commit()
-    return self.cursor.lastrowid
+  # ---------------------- Doctor Methods ----------------------
 
-def update_doctor(self, data):
-    query = """
-        UPDATE doctors 
-        SET first_name=%s, last_name=%s, specialization=%s, phone=%s, email=%s, schedule=%s
-        WHERE id=%s
-    """
-    values = (
-        data.get("first_name"),
-        data.get("last_name"),
-        data.get("specialization"),
-        data.get("phone"),
-        data.get("email"),
-        data.get("schedule"),
-        data.get("id"),
-    )
-    self.cursor.execute(query, values)
-    self.connection.commit()
+    def add_doctor(self, data):
+        query = """
+            INSERT INTO doctors (first_name, last_name, specialization, phone, email, schedule)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        values = (
+            data.get("first_name"),
+            data.get("last_name"),
+            data.get("specialization"),
+            data.get("phone"),
+            data.get("email"),
+            data.get("schedule"),
+        )
+        self.cursor.execute(query, values)
+        self.connection.commit()
+        return self.cursor.lastrowid
 
-def delete_doctor(self, doctor_id):
-    query = "DELETE FROM doctors WHERE id=%s"
-    self.cursor.execute(query, (doctor_id,))
-    self.connection.commit()
+    def update_doctor(self, data):
+        query = """
+            UPDATE doctors 
+            SET first_name=%s, last_name=%s, specialization=%s, phone=%s, email=%s, schedule=%s
+            WHERE id=%s
+        """
+        values = (
+            data.get("first_name"),
+            data.get("last_name"),
+            data.get("specialization"),
+            data.get("phone"),
+            data.get("email"),
+            data.get("schedule"),
+            data.get("id"),
+        )
+        self.cursor.execute(query, values)
+        self.connection.commit()
 
-def get_all_doctors(self):
-    self.cursor.execute("SELECT * FROM doctors ORDER BY created_at DESC")
-    return self.cursor.fetchall()
+    def delete_doctor(self, doctor_id):
+        query = "DELETE FROM doctors WHERE id=%s"
+        self.cursor.execute(query, (doctor_id,))
+        self.connection.commit()
 
-def search_doctors(self, term):
-    like_term = f"%{term}%"
-    query = """
-        SELECT * FROM doctors
-        WHERE first_name LIKE %s OR last_name LIKE %s OR specialization LIKE %s OR phone LIKE %s OR email LIKE %s
-    """
-    self.cursor.execute(query, (like_term, like_term, like_term, like_term, like_term))
-    return self.cursor.fetchall()
+    def get_all_doctors(self):
+        self.cursor.execute("SELECT * FROM doctors ORDER BY id DESC")
+        return self.cursor.fetchall()
 
+    def search_doctors(self, term):
+        like_term = f"%{term}%"
+        query = """
+            SELECT * FROM doctors
+            WHERE first_name LIKE %s OR last_name LIKE %s OR specialization LIKE %s 
+                  OR phone LIKE %s OR email LIKE %s
+        """
+        self.cursor.execute(query, (like_term, like_term, like_term, like_term, like_term))
+        return self.cursor.fetchall()
+    
+   # ---------------- STAFF METHODS ----------------
+    def add_staff(self, data):
+        query = """
+            INSERT INTO staff (full_name, role, department, phone, email, hire_date, salary)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        self.cursor.execute(query, (
+            data['full_name'],
+            data['role'],
+            data['department'],
+            data['phone'],
+            data['email'],
+            data['hire_date'],
+            data['salary']
+        ))
+        self.connection.commit()
+
+    def update_staff(self, data):
+        query = """
+            UPDATE staff 
+            SET full_name=%s, role=%s, department=%s, phone=%s, email=%s, hire_date=%s, salary=%s
+            WHERE id=%s
+        """
+        self.cursor.execute(query, (
+            data['full_name'],
+            data['role'],
+            data['department'],
+            data['phone'],
+            data['email'],
+            data['hire_date'],
+            data['salary'],
+            data['id']
+        ))
+        self.connection.commit()
+
+    def delete_staff(self, staff_id):
+        query = "DELETE FROM staff WHERE id=%s"
+        self.cursor.execute(query, (staff_id,))
+        self.connection.commit()
+
+    def get_all_staff(self):
+        self.cursor.execute("SELECT * FROM staff ORDER BY id DESC")
+        return self.cursor.fetchall()
+
+    def search_staff(self, term):
+        like_term = f"%{term}%"
+        query = """
+            SELECT * FROM staff 
+            WHERE full_name LIKE %s 
+               OR role LIKE %s 
+               OR department LIKE %s 
+               OR email LIKE %s
+        """
+        self.cursor.execute(query, (like_term, like_term, like_term, like_term))
+        return self.cursor.fetchall()
+
+        
+    def get_all_appointments(self):
+        """Fetch all appointments with patient and doctor names"""
+        query = """
+            SELECT a.id, CONCAT(p.id, ' - ', p.full_name) AS patient_name,
+                   CONCAT(d.id, ' - ', d.full_name) AS doctor_name,
+                   a.appointment_date, a.appointment_time, a.status, a.notes
+            FROM appointments a
+            JOIN patients p ON a.patient_id = p.id
+            JOIN doctors d ON a.doctor_id = d.id
+            ORDER BY a.appointment_date, a.appointment_time
+        """
+        cursor = self.connection.cursor(dictionary=True)
+        cursor.execute(query)
+        result = cursor.fetchall()
+        cursor.close()
+        return result
+
+    def search_appointments(self, search_term):
+        """Search appointments by patient or doctor name"""
+        query = """
+            SELECT a.id, CONCAT(p.id, ' - ', p.full_name) AS patient_name,
+                   CONCAT(d.id, ' - ', d.full_name) AS doctor_name,
+                   a.appointment_date, a.appointment_time, a.status, a.notes
+            FROM appointments a
+            JOIN patients p ON a.patient_id = p.id
+            JOIN doctors d ON a.doctor_id = d.id
+            WHERE p.full_name LIKE %s OR d.full_name LIKE %s
+            ORDER BY a.appointment_date, a.appointment_time
+        """
+        cursor = self.connection.cursor(dictionary=True)
+        term = f"%{search_term}%"
+        cursor.execute(query, (term, term))
+        result = cursor.fetchall()
+        cursor.close()
+        return result
+
+    def add_appointment(self, data):
+        """Add new appointment"""
+        query = """
+            INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, status, notes)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        cursor = self.connection.cursor()
+        cursor.execute(query, (
+            data['patient_id'], data['doctor_id'], data['appointment_date'],
+            data['appointment_time'], data['status'], data['notes']
+        ))
+        self.connection.commit()
+        cursor.close()
+
+    def update_appointment(self, data):
+        """Update existing appointment"""
+        query = """
+            UPDATE appointments
+            SET patient_id=%s, doctor_id=%s, appointment_date=%s,
+                appointment_time=%s, status=%s, notes=%s
+            WHERE id=%s
+        """
+        cursor = self.connection.cursor()
+        cursor.execute(query, (
+            data['patient_id'], data['doctor_id'], data['appointment_date'],
+            data['appointment_time'], data['status'], data['notes'], data['id']
+        ))
+        self.connection.commit()
+        cursor.close()
+
+    def update_appointment_status(self, appointment_id, status):
+        """Update appointment status (e.g., Cancelled)"""
+        query = "UPDATE appointments SET status=%s WHERE id=%s"
+        cursor = self.connection.cursor()
+        cursor.execute(query, (status, appointment_id))
+        self.connection.commit()
+        cursor.close()
+
+    def get_all_patients(self):
+        """Fetch all patients for combobox"""
+        query = "SELECT id, full_name FROM patients ORDER BY full_name"
+        cursor = self.connection.cursor(dictionary=True)
+        cursor.execute(query)
+        result = cursor.fetchall()
+        cursor.close()
+        return result
+
+    def get_all_doctors(self):
+        """Fetch all doctors for combobox"""
+        query = "SELECT id, full_name FROM doctors ORDER BY full_name"
+        cursor = self.connection.cursor(dictionary=True)
+        cursor.execute(query)
+        result = cursor.fetchall()
+        cursor.close()
+        return result
 
     def close(self):
         if self.cursor:

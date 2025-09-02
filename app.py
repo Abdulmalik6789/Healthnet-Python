@@ -68,6 +68,7 @@ class HealthNetApp:
         """Clear all widgets from the window"""
         for widget in self.root.winfo_children():
             widget.destroy()
+
     def show_login(self):
         """Show login page"""
         self.clear_window()
