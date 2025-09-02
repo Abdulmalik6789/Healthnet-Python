@@ -467,65 +467,68 @@ class Database:
         cursor.close()
         return result
 
-    def add_appointment(self, data):
-        """Add new appointment"""
+     # ----------------------
+    # APPOINTMENT METHODS
+    # ----------------------
+    def get_all_appointments(self):
+        if not self.connection:
+            return []
         query = """
-            INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, status, notes)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            SELECT a.id, CONCAT(p.id, ' - ', p.first_name, ' ', p.last_name) AS patient_name,
+                   CONCAT(d.id, ' - ', d.first_name, ' ', d.last_name) AS doctor_name,
+                   a.appointment_date, a.appointment_time, a.status, a.notes
+            FROM appointments a
+            JOIN patients p ON a.patient_id = p.id
+            JOIN doctors d ON a.doctor_id = d.id
+            ORDER BY a.appointment_date, a.appointment_time
         """
-        cursor = self.connection.cursor()
-        cursor.execute(query, (
-            data['patient_id'], data['doctor_id'], data['appointment_date'],
-            data['appointment_time'], data['status'], data['notes']
-        ))
-        self.connection.commit()
-        cursor.close()
-
-    def update_appointment(self, data):
-        """Update existing appointment"""
-        query = """
-            UPDATE appointments
-            SET patient_id=%s, doctor_id=%s, appointment_date=%s,
-                appointment_time=%s, status=%s, notes=%s
-            WHERE id=%s
-        """
-        cursor = self.connection.cursor()
-        cursor.execute(query, (
-            data['patient_id'], data['doctor_id'], data['appointment_date'],
-            data['appointment_time'], data['status'], data['notes'], data['id']
-        ))
-        self.connection.commit()
-        cursor.close()
-
-    def update_appointment_status(self, appointment_id, status):
-        """Update appointment status (e.g., Cancelled)"""
-        query = "UPDATE appointments SET status=%s WHERE id=%s"
-        cursor = self.connection.cursor()
-        cursor.execute(query, (status, appointment_id))
-        self.connection.commit()
-        cursor.close()
-
-    def get_all_patients(self):
-        """Fetch all patients for combobox"""
-        query = "SELECT id, full_name FROM patients ORDER BY full_name"
         cursor = self.connection.cursor(dictionary=True)
         cursor.execute(query)
         result = cursor.fetchall()
         cursor.close()
         return result
-
-    def get_all_doctors(self):
-        """Fetch all doctors for combobox"""
-        query = "SELECT id, full_name FROM doctors ORDER BY full_name"
+    
+    def search_appointments(self, search_term):
+        query = """
+            SELECT a.id, CONCAT(p.id, ' - ', p.first_name, ' ', p.last_name) AS patient_name,
+                   CONCAT(d.id, ' - ', d.first_name, ' ', d.last_name) AS doctor_name,
+                   a.appointment_date, a.appointment_time, a.status, a.notes
+            FROM appointments a
+            JOIN patients p ON a.patient_id = p.id
+            JOIN doctors d ON a.doctor_id = d.id
+            WHERE CONCAT(p.first_name, ' ', p.last_name) LIKE %s 
+               OR CONCAT(d.first_name, ' ', d.last_name) LIKE %s
+            ORDER BY a.appointment_date, a.appointment_time
+        """
         cursor = self.connection.cursor(dictionary=True)
-        cursor.execute(query)
+        term = f"%{search_term}%"
+        cursor.execute(query, (term, term))
         result = cursor.fetchall()
         cursor.close()
         return result
 
-    def close(self):
-        if self.cursor:
-            self.cursor.close()
-        if self.connection:
-            self.connection.close()
-        print("Database connection closed")
+
+def get_all_patients_combobox(self):
+    """Fetch all patients for combobox"""
+    query = "SELECT id, CONCAT(first_name, ' ', last_name) AS full_name FROM patients ORDER BY first_name"
+    cursor = self.connection.cursor(dictionary=True)
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    return result
+
+def get_all_doctors_combobox(self):
+    """Fetch all doctors for combobox"""
+    query = "SELECT id, CONCAT(first_name, ' ', last_name) AS full_name FROM doctors ORDER BY first_name"
+    cursor = self.connection.cursor(dictionary=True)
+    cursor.execute(query)
+    result = cursor.fetchall()
+    cursor.close()
+    return result
+
+def close(self):
+    if self.cursor:
+        self.cursor.close()
+    if self.connection:
+        self.connection.close()
+    print("Database connection closed")
