@@ -16,7 +16,9 @@ from doctors import DoctorsPage
 from appointments import AppointmentsPage
 from staff import StaffPage
 from db import Database
-from admin import AdminPage  # Added import for AdminPage
+from admin import AdminPage
+from patientdashboard import PatientDashboard
+
 
 class HealthNetApp:
     def __init__(self):
@@ -80,7 +82,7 @@ class HealthNetApp:
         self.current_page = SignupPage(self.root, self)
     
     def show_dashboard(self):
-        """Show dashboard page"""
+        """Show dashboard page (non-patient users)"""
         if not self.current_user:
             messagebox.showerror("Error", "No user logged in")
             self.show_login()
@@ -135,8 +137,26 @@ class HealthNetApp:
     def login_user(self, user):
         """Set current user after successful login"""
         self.current_user = user
-        self.show_dashboard()
-    
+
+        # Route based on role
+        if user['role'] == "Patient":
+            self.show_patient_dashboard()
+        elif user['role'] == "Admin":
+            self.show_admin()
+        else:
+            self.show_dashboard()
+
+    def show_patient_dashboard(self):
+        """Show patient dashboard"""
+        if not self.current_user:
+            self.show_login()
+            return
+        if self.current_user.get('role') != 'Patient':
+            messagebox.showerror("Access Denied", "Patient access required")
+            return
+        self.clear_window()
+        self.current_page = PatientDashboard(self.root, self, self.current_user)
+
     def logout_user(self):
         """Logout current user"""
         self.current_user = None
@@ -145,6 +165,7 @@ class HealthNetApp:
     def run(self):
         """Start the application"""
         self.root.mainloop()
+
 
 if __name__ == "__main__":
     app = HealthNetApp()

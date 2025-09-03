@@ -175,11 +175,11 @@ class AppointmentsPage:
 
         # --- Load Patients and Doctors ---
         try:
-            patients = self.app.db.get_all_patients()
+            patients = self.app.db.get_all_patients_combobox()
             self.patient_map = {f"{p['id']} - {p['first_name']} {p['last_name']}": p['id'] for p in patients}
             fields['patient']['values'] = list(self.patient_map.keys())
 
-            doctors = self.app.db.get_all_doctors()
+            doctors = self.app.db.get_all_doctors_combobox()
             self.doctor_map = {f"{d['id']} - {d['first_name']} {d['last_name']}": d['id'] for d in doctors}
             fields['doctor']['values'] = list(self.doctor_map.keys())
         except Exception as e:

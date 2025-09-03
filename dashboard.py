@@ -1,7 +1,4 @@
-"""
-Dashboard Page Class
-Main dashboard after login
-"""
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -136,42 +133,4 @@ class DashboardPage:
         self.refresh_stats()
         self.root.after(interval, self.auto_refresh)
 
-    # ---------------- Extra functions ----------------
-    def show_my_schedule(self):
-        """Show doctor's schedule count"""
-        try:
-            count = self.app.db.cursor.execute(
-                "SELECT COUNT(*) as count FROM appointments WHERE doctor_id=%s", 
-                (self.user['id'],)
-            )
-            result = self.app.db.cursor.fetchone()
-            count = result['count'] if result else 0
-            messagebox.showinfo("My Schedule", f"You have {count} appointments scheduled.")
-        except:
-            messagebox.showinfo("My Schedule", "No appointments found.")
-
-    def show_my_appointments(self):
-        """Show patient's appointment count"""
-        try:
-            self.app.db.cursor.execute(
-                "SELECT COUNT(*) as count FROM appointments WHERE patient_id=%s", 
-                (self.user['id'],)
-            )
-            result = self.app.db.cursor.fetchone()
-            count = result['count'] if result else 0
-            messagebox.showinfo("My Appointments", f"You have {count} upcoming appointments.")
-        except:
-            messagebox.showinfo("My Appointments", "No appointments found.")
-
-    def show_medical_records(self):
-        """Show patient's medical record count"""
-        try:
-            self.app.db.cursor.execute(
-                "SELECT COUNT(*) as count FROM medical_records WHERE patient_id=%s", 
-                (self.user['id'],)
-            )
-            result = self.app.db.cursor.fetchone()
-            count = result['count'] if result else 0
-            messagebox.showinfo("Medical Records", f"You have {count} medical records available.")
-        except:
-            messagebox.showinfo("Medical Records", "No medical records found.")
+    

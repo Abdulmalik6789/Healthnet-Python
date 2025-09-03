@@ -7,11 +7,12 @@ from mysql.connector import Error
 import hashlib
 from datetime import datetime, date
 
+
 class Database:
     def __init__(self):
         self.connection = None
         self.cursor = None
-        
+
         self.config = {
             'host': '127.0.0.1',
             'port': 3306,
@@ -19,25 +20,26 @@ class Database:
             'password': '',
             'database': 'healthnethlm_db'
         }
-    
+
     def connect(self):
         try:
+            # Ensure database exists
             temp_config = self.config.copy()
             temp_config.pop('database')
             temp_connection = mysql.connector.connect(**temp_config)
             temp_cursor = temp_connection.cursor()
-            temp_cursor.execute("CREATE DATABASE IF NOT EXISTS healthnet_db")
+            temp_cursor.execute("CREATE DATABASE IF NOT EXISTS healthnethlm_db")
             temp_cursor.close()
             temp_connection.close()
-            
+
             self.connection = mysql.connector.connect(**self.config)
             self.cursor = self.connection.cursor(dictionary=True)
-            print("Connected to MySQL database successfully")
+            print("✅ Connected to MySQL database successfully")
         except Error as e:
-            print(f"Error connecting to MySQL: {e}")
+            print(f"❌ Error connecting to MySQL: {e}")
             return False
         return True
-    
+
     def create_tables(self):
         try:
             users_table = """
@@ -52,7 +54,7 @@ class Database:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """
-            
+
             patients_table = """
             CREATE TABLE IF NOT EXISTS patients (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -72,52 +74,49 @@ class Database:
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
             """
-            # Doctors table
-            doctors_table = """
-    CREATE TABLE IF NOT EXISTS doctors (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        first_name VARCHAR(100) NOT NULL,
-        last_name VARCHAR(100) NOT NULL,
-        specialization VARCHAR(100) NOT NULL,
-        phone VARCHAR(20) NOT NULL,
-        email VARCHAR(150) NOT NULL,
-        schedule TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-          """
 
-          # Staff Table
-            staff_table = """
-           CREATE TABLE IF NOT EXISTS staff (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            full_name VARCHAR(255) NOT NULL,
-            role VARCHAR(100) NOT NULL,
-            department VARCHAR(100),
-            phone VARCHAR(20),
-            email VARCHAR(150),
-            hire_date DATE,
-            salary DECIMAL(10,2),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
+            doctors_table = """
+            CREATE TABLE IF NOT EXISTS doctors (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                first_name VARCHAR(100) NOT NULL,
+                last_name VARCHAR(100) NOT NULL,
+                specialization VARCHAR(100) NOT NULL,
+                phone VARCHAR(20) NOT NULL,
+                email VARCHAR(150) NOT NULL,
+                schedule TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
             """
 
-             # Appointment Table
-            appointments_table = """
-               CREATE TABLE IF NOT EXISTS appointments (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    patient_id INT NOT NULL,
-    doctor_id INT NOT NULL,
-    appointment_date DATE NOT NULL,
-    appointment_time TIME NOT NULL,
-    status ENUM('Scheduled','Confirmed','Completed','Cancelled') DEFAULT 'Scheduled',
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (patient_id) REFERENCES patients(id),
-    FOREIGN KEY (doctor_id) REFERENCES doctors(id)
-)
-"""
+            staff_table = """
+            CREATE TABLE IF NOT EXISTS staff (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                full_name VARCHAR(255) NOT NULL,
+                role VARCHAR(100) NOT NULL,
+                department VARCHAR(100),
+                phone VARCHAR(20),
+                email VARCHAR(150),
+                hire_date DATE,
+                salary DECIMAL(10,2),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
 
+            appointments_table = """
+            CREATE TABLE IF NOT EXISTS appointments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                patient_id INT NOT NULL,
+                doctor_id INT NOT NULL,
+                appointment_date DATE NOT NULL,
+                appointment_time TIME NOT NULL,
+                status ENUM('Scheduled','Confirmed','Completed','Cancelled') DEFAULT 'Scheduled',
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (patient_id) REFERENCES patients(id),
+                FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+            )
+            """
 
             self.cursor.execute(users_table)
             self.cursor.execute(patients_table)
@@ -126,10 +125,10 @@ class Database:
             self.cursor.execute(appointments_table)
             self.connection.commit()
             self.create_default_admin()
-            print("Database tables created successfully")
+            print("✅ Database tables created successfully")
         except Error as e:
-            print(f"Error creating tables: {e}")
-    
+            print(f"❌ Error creating tables: {e}")
+
     def create_default_admin(self):
         try:
             self.cursor.execute("SELECT * FROM users WHERE username = 'admin'")
@@ -140,29 +139,40 @@ class Database:
             INSERT INTO users (username, password, role, full_name, email, phone)
             VALUES (%s, %s, %s, %s, %s, %s)
             """
-            self.cursor.execute(query, ('admin', password_hash, 'Admin', 'System Administrator',
-                                        'admin@healthnet.com', '1234567890'))
+            self.cursor.execute(query, ('admin', password_hash, 'Admin',
+                                        'System Administrator',
+                                        'admin@healthnet.com',
+                                        '1234567890'))
             self.connection.commit()
-            print("Default admin user created: admin/admin123")
+            print("✅ Default admin user created: admin/admin123")
         except Error as e:
-            print(f"Error creating default admin: {e}")
-    
+            print(f"❌ Error creating default admin: {e}")
+
     def hash_password(self, password):
         return hashlib.sha256(password.encode()).hexdigest()
-    
-    def authenticate_user(self, username, password):
+
+    def get_all_patients_for_signup(self):
+       self.cursor.execute("SELECT id, first_name, last_name FROM patients")
+       return self.cursor.fetchall()
+
+    def get_all_doctors_for_signup(self):
+        self.cursor.execute("SELECT id, first_name, last_name FROM doctors")
+        return self.cursor.fetchall()
+
+    def create_user(self, linked_id, role, username, password, email="", phone=""):
         try:
             password_hash = self.hash_password(password)
-            query = "SELECT * FROM users WHERE username = %s AND password = %s"
-            self.cursor.execute(query, (username, password_hash))
-            return self.cursor.fetchone()
-        except Error as e:
-            print(f"Authentication error: {e}")
-            return None
-    
-    def create_user(self, username, password, role, full_name, email=None, phone=None):
-        try:
-            password_hash = self.hash_password(password)
+            if role == "Patient":
+                self.cursor.execute("SELECT first_name, last_name FROM patients WHERE id=%s", (linked_id,))
+                user = self.cursor.fetchone()
+                full_name = f"{user['first_name']} {user['last_name']}" if user else "Patient User"
+            elif role == "Doctor":
+                self.cursor.execute("SELECT first_name, last_name FROM doctors WHERE id=%s", (linked_id,))
+                user = self.cursor.fetchone()
+                full_name = f"Dr. {user['first_name']} {user['last_name']}" if user else "Doctor User"
+            else:
+                full_name = "Staff User"
+
             query = """
             INSERT INTO users (username, password, role, full_name, email, phone)
             VALUES (%s, %s, %s, %s, %s, %s)
@@ -171,8 +181,15 @@ class Database:
             self.connection.commit()
             return True
         except Error as e:
-            print(f"Error creating user: {e}")
+            print(f"❌ Error creating user: {e}")
             return False
+
+    def authenticate_user(self, username, password):
+        password_hash = self.hash_password(password)
+        query = "SELECT * FROM users WHERE username=%s AND password=%s"
+        self.cursor.execute(query, (username, password_hash))
+        return self.cursor.fetchone()
+
 
     # ----------------------
     # ✅ PATIENT CRUD METHODS
@@ -429,122 +446,133 @@ class Database:
         """
         self.cursor.execute(query, (like_term, like_term, like_term, like_term))
         return self.cursor.fetchall()
-    
-# ---------------------- APPOINTMENT METHODS ----------------------
-def add_appointment(self, data):
-    try:
-        query = """
-            INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, status, notes)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """
-        cursor = self.connection.cursor()
-        cursor.execute(query, (
-            data['patient_id'],
-            data['doctor_id'],
-            data['appointment_date'],
-            data['appointment_time'],
-            data.get('status', 'Scheduled'),
-            data.get('notes', '')
-        ))
-        self.connection.commit()
-        cursor.close()
-        return True
-    except Exception as e:
-        print(f"Error adding appointment: {e}")
-        return False
 
-def get_all_appointments(self):
-    try:
-        query = """
-            SELECT a.id, a.patient_id, a.doctor_id,
-                   p.first_name AS patient_first, p.last_name AS patient_last,
-                   d.first_name AS doctor_first, d.last_name AS doctor_last,
-                   a.appointment_date, a.appointment_time, a.status, a.notes
-            FROM appointments a
-            JOIN patients p ON a.patient_id = p.id
-            JOIN doctors d ON a.doctor_id = d.id
-            ORDER BY a.appointment_date, a.appointment_time
-        """
+
+    # ---------------------- APPOINTMENTS ----------------------
+    def add_appointment(self, patient_id, doctor_id, appointment_date, appointment_time, status="Scheduled", notes=""):
+        try:
+            query = """
+                INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, status, notes)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            self.cursor.execute(query, (patient_id, doctor_id, appointment_date, appointment_time, status, notes))
+            self.connection.commit()
+            return True
+        except Error as e:
+            print(f"❌ Error adding appointment: {e}")
+            return False
+
+    def get_all_appointments(self):
+        try:
+            query = """
+                SELECT a.id, a.patient_id, a.doctor_id,
+                       p.first_name AS patient_first, p.last_name AS patient_last,
+                       d.first_name AS doctor_first, d.last_name AS doctor_last,
+                       a.appointment_date, a.appointment_time, a.status, a.notes
+                FROM appointments a
+                JOIN patients p ON a.patient_id = p.id
+                JOIN doctors d ON a.doctor_id = d.id
+                ORDER BY a.appointment_date, a.appointment_time
+            """
+            self.cursor.execute(query)
+            return self.cursor.fetchall()
+        except Error as e:
+            print(f"❌ Error fetching appointments: {e}")
+            return []
+
+    def update_appointment(self, data):
+        try:
+            query = """
+                UPDATE appointments
+                SET patient_id=%s, doctor_id=%s, appointment_date=%s,
+                    appointment_time=%s, status=%s, notes=%s
+                WHERE id=%s
+            """
+            self.cursor.execute(query, (
+                data['patient_id'], data['doctor_id'], data['appointment_date'],
+                data['appointment_time'], data['status'], data['notes'], data['id']
+            ))
+            self.connection.commit()
+            return True
+        except Error as e:
+            print(f"❌ Error updating appointment: {e}")
+            return False
+
+    def search_appointments(self, term):
+        try:
+            query = """
+                SELECT a.id, a.patient_id, a.doctor_id,
+                       p.first_name AS patient_first, p.last_name AS patient_last,
+                       d.first_name AS doctor_first, d.last_name AS doctor_last,
+                       a.appointment_date, a.appointment_time, a.status, a.notes
+                FROM appointments a
+                JOIN patients p ON a.patient_id = p.id
+                JOIN doctors d ON a.doctor_id = d.id
+                WHERE p.first_name LIKE %s OR p.last_name LIKE %s
+                   OR d.first_name LIKE %s OR d.last_name LIKE %s
+                ORDER BY a.appointment_date, a.appointment_time
+            """
+            term_wild = f"%{term}%"
+            self.cursor.execute(query, (term_wild, term_wild, term_wild, term_wild))
+            return self.cursor.fetchall()
+        except Error as e:
+            print(f"❌ Error searching appointments: {e}")
+            return []
+
+    def get_all_patients_combobox(self):
+        query = "SELECT id, first_name, last_name FROM patients ORDER BY first_name"
         self.cursor.execute(query)
         return self.cursor.fetchall()
-    except Error as e:
-        print(f"Error fetching appointments: {e}")
-        return []
 
-def update_appointment(self, data):
-    try:
-        query = """
-            UPDATE appointments
-            SET patient_id=%s, doctor_id=%s, appointment_date=%s, appointment_time=%s, status=%s, notes=%s
-            WHERE id=%s
-        """
-        self.cursor.execute(query, (
-            data['patient_id'],
-            data['doctor_id'],
-            data['appointment_date'],
-            data['appointment_time'],
-            data['status'],
-            data['notes'],
-            data['id']
-        ))
-        self.connection.commit()
-        return True
-    except Error as e:
-        print(f"Error updating appointment: {e}")
-        return False
-
-def update_appointment_status(self, appointment_id, status):
-    try:
-        query = "UPDATE appointments SET status=%s WHERE id=%s"
-        self.cursor.execute(query, (status, appointment_id))
-        self.connection.commit()
-        return True
-    except Error as e:
-        print(f"Error updating appointment status: {e}")
-        return False
-
-def search_appointments(self, term):
-    try:
-        query = """
-            SELECT a.id, a.patient_id, a.doctor_id,
-                   p.first_name AS patient_first, p.last_name AS patient_last,
-                   d.first_name AS doctor_first, d.last_name AS doctor_last,
-                   a.appointment_date, a.appointment_time, a.status, a.notes
-            FROM appointments a
-            JOIN patients p ON a.patient_id = p.id
-            JOIN doctors d ON a.doctor_id = d.id
-            WHERE p.first_name LIKE %s OR p.last_name LIKE %s
-               OR d.first_name LIKE %s OR d.last_name LIKE %s
-            ORDER BY a.appointment_date, a.appointment_time
-        """
-        term_wild = f"%{term}%"
-        self.cursor.execute(query, (term_wild, term_wild, term_wild, term_wild))
+    def get_all_doctors_combobox(self):
+        query = "SELECT id, first_name, last_name FROM doctors ORDER BY first_name"
+        self.cursor.execute(query)
         return self.cursor.fetchall()
-    except Error as e:
-        print(f"Error searching appointments: {e}")
-        return []
 
-def get_all_patients_combobox(self):
-    """Fetch all patients for combobox"""
-    query = "SELECT id, CONCAT(first_name, ' ', last_name) AS full_name FROM patients ORDER BY first_name"
-    cursor = self.connection.cursor(dictionary=True)
-    cursor.execute(query)
-    result = cursor.fetchall()
-    cursor.close()
-    return result
+        # ---------- Fetching patient appointment and medical records ----------
+    def get_patient_appointments(self, patient_id):
+        query = """
+        SELECT a.appointment_date, a.appointment_time,
+               CONCAT(d.first_name, ' ', d.last_name) AS doctor_name,
+               a.status, a.notes
+        FROM appointments a
+        JOIN doctors d ON a.doctor_id = d.id
+        WHERE a.patient_id = %s
+        ORDER BY a.appointment_date ASC
+       """
+        self.cursor.execute(query, (patient_id,))
+        rows = self.cursor.fetchall()
+        return [
+        {
+            "appointment_date": row[0],
+            "appointment_time": row[1],
+            "doctor_name": row[2],
+            "status": row[3],
+            "notes": row[4],
+        }
+        for row in rows
+    ]
 
-def get_all_doctors_combobox(self):
-    """Fetch all doctors for combobox"""
-    query = "SELECT id, CONCAT(first_name, ' ', last_name) AS full_name FROM doctors ORDER BY first_name"
-    cursor = self.connection.cursor(dictionary=True)
-    cursor.execute(query)
-    result = cursor.fetchall()
-    cursor.close()
-    return result
+#     def get_patient_medical_history(self, patient_id):
+#         query = """
+#         SELECT record_date, medical_history
+#         FROM patients
+#         WHERE id = %s
+#        """
+#     self.cursor.execute(query, (patient_id,))
+#     rows = self.cursor.fetchall()
+#     return [
+#    {"record_date": row[0], "medical_history": row[1]}
+#         for row in rows
+#     ]
 
-def close(self):
-    if self.cursor:
-        self.cursor.close()
-    if self.connection:
-        self.connection.close()
-    print("Database connection closed")
+
+
+        #--------------closing------------
+
+    def close(self):
+        if self.cursor:
+            self.cursor.close()
+        if self.connection:
+            self.connection.close()
+        print("🔒 Database connection closed")
