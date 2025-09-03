@@ -17,7 +17,7 @@ class Database:
             'port': 3306,
             'user': 'root',
             'password': '',
-            'database': 'healthnet_db'
+            'database': 'healthnethlm_db'
         }
     
     def connect(self):
@@ -429,84 +429,100 @@ class Database:
         """
         self.cursor.execute(query, (like_term, like_term, like_term, like_term))
         return self.cursor.fetchall()
-
-        
-    def get_all_appointments(self):
-        """Fetch all appointments with patient and doctor names"""
-        query = """
-            SELECT a.id, CONCAT(p.id, ' - ', p.full_name) AS patient_name,
-                   CONCAT(d.id, ' - ', d.full_name) AS doctor_name,
-                   a.appointment_date, a.appointment_time, a.status, a.notes
-            FROM appointments a
-            JOIN patients p ON a.patient_id = p.id
-            JOIN doctors d ON a.doctor_id = d.id
-            ORDER BY a.appointment_date, a.appointment_time
-        """
-        cursor = self.connection.cursor(dictionary=True)
-        cursor.execute(query)
-        result = cursor.fetchall()
-        cursor.close()
-        return result
-
-    def search_appointments(self, search_term):
-        """Search appointments by patient or doctor name"""
-        query = """
-            SELECT a.id, CONCAT(p.id, ' - ', p.full_name) AS patient_name,
-                   CONCAT(d.id, ' - ', d.full_name) AS doctor_name,
-                   a.appointment_date, a.appointment_time, a.status, a.notes
-            FROM appointments a
-            JOIN patients p ON a.patient_id = p.id
-            JOIN doctors d ON a.doctor_id = d.id
-            WHERE p.full_name LIKE %s OR d.full_name LIKE %s
-            ORDER BY a.appointment_date, a.appointment_time
-        """
-        cursor = self.connection.cursor(dictionary=True)
-        term = f"%{search_term}%"
-        cursor.execute(query, (term, term))
-        result = cursor.fetchall()
-        cursor.close()
-        return result
-
-     # ----------------------
-    # APPOINTMENT METHODS
-    # ----------------------
-    def get_all_appointments(self):
-        if not self.connection:
-            return []
-        query = """
-            SELECT a.id, CONCAT(p.id, ' - ', p.first_name, ' ', p.last_name) AS patient_name,
-                   CONCAT(d.id, ' - ', d.first_name, ' ', d.last_name) AS doctor_name,
-                   a.appointment_date, a.appointment_time, a.status, a.notes
-            FROM appointments a
-            JOIN patients p ON a.patient_id = p.id
-            JOIN doctors d ON a.doctor_id = d.id
-            ORDER BY a.appointment_date, a.appointment_time
-        """
-        cursor = self.connection.cursor(dictionary=True)
-        cursor.execute(query)
-        result = cursor.fetchall()
-        cursor.close()
-        return result
     
-    def search_appointments(self, search_term):
+# ---------------------- APPOINTMENT METHODS ----------------------
+def add_appointment(self, data):
+    try:
         query = """
-            SELECT a.id, CONCAT(p.id, ' - ', p.first_name, ' ', p.last_name) AS patient_name,
-                   CONCAT(d.id, ' - ', d.first_name, ' ', d.last_name) AS doctor_name,
+            INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, status, notes)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        cursor = self.connection.cursor()
+        cursor.execute(query, (
+            data['patient_id'],
+            data['doctor_id'],
+            data['appointment_date'],
+            data['appointment_time'],
+            data.get('status', 'Scheduled'),
+            data.get('notes', '')
+        ))
+        self.connection.commit()
+        cursor.close()
+        return True
+    except Exception as e:
+        print(f"Error adding appointment: {e}")
+        return False
+
+def get_all_appointments(self):
+    try:
+        query = """
+            SELECT a.id, a.patient_id, a.doctor_id,
+                   p.first_name AS patient_first, p.last_name AS patient_last,
+                   d.first_name AS doctor_first, d.last_name AS doctor_last,
                    a.appointment_date, a.appointment_time, a.status, a.notes
             FROM appointments a
             JOIN patients p ON a.patient_id = p.id
             JOIN doctors d ON a.doctor_id = d.id
-            WHERE CONCAT(p.first_name, ' ', p.last_name) LIKE %s 
-               OR CONCAT(d.first_name, ' ', d.last_name) LIKE %s
             ORDER BY a.appointment_date, a.appointment_time
         """
-        cursor = self.connection.cursor(dictionary=True)
-        term = f"%{search_term}%"
-        cursor.execute(query, (term, term))
-        result = cursor.fetchall()
-        cursor.close()
-        return result
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+    except Error as e:
+        print(f"Error fetching appointments: {e}")
+        return []
 
+def update_appointment(self, data):
+    try:
+        query = """
+            UPDATE appointments
+            SET patient_id=%s, doctor_id=%s, appointment_date=%s, appointment_time=%s, status=%s, notes=%s
+            WHERE id=%s
+        """
+        self.cursor.execute(query, (
+            data['patient_id'],
+            data['doctor_id'],
+            data['appointment_date'],
+            data['appointment_time'],
+            data['status'],
+            data['notes'],
+            data['id']
+        ))
+        self.connection.commit()
+        return True
+    except Error as e:
+        print(f"Error updating appointment: {e}")
+        return False
+
+def update_appointment_status(self, appointment_id, status):
+    try:
+        query = "UPDATE appointments SET status=%s WHERE id=%s"
+        self.cursor.execute(query, (status, appointment_id))
+        self.connection.commit()
+        return True
+    except Error as e:
+        print(f"Error updating appointment status: {e}")
+        return False
+
+def search_appointments(self, term):
+    try:
+        query = """
+            SELECT a.id, a.patient_id, a.doctor_id,
+                   p.first_name AS patient_first, p.last_name AS patient_last,
+                   d.first_name AS doctor_first, d.last_name AS doctor_last,
+                   a.appointment_date, a.appointment_time, a.status, a.notes
+            FROM appointments a
+            JOIN patients p ON a.patient_id = p.id
+            JOIN doctors d ON a.doctor_id = d.id
+            WHERE p.first_name LIKE %s OR p.last_name LIKE %s
+               OR d.first_name LIKE %s OR d.last_name LIKE %s
+            ORDER BY a.appointment_date, a.appointment_time
+        """
+        term_wild = f"%{term}%"
+        self.cursor.execute(query, (term_wild, term_wild, term_wild, term_wild))
+        return self.cursor.fetchall()
+    except Error as e:
+        print(f"Error searching appointments: {e}")
+        return []
 
 def get_all_patients_combobox(self):
     """Fetch all patients for combobox"""
