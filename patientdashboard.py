@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 
 class PatientDashboard:
     def __init__(self, root, app, user):
@@ -70,7 +71,7 @@ class PatientDashboard:
             for a in appointments:
                 tk.Label(
                     self.display_frame,
-                    text=f"{a['appointment_date']} {a['appointment_time']} | Dr. {a['doctor_name']} | {a['status']} | Notes: {a['notes']}",
+                    text=f"Date: {a['appointment_date']} | Time: {a['appointment_time']}",
                     font=("Arial", 12), bg="white"
                 ).pack(anchor="w", padx=20, pady=5)
         else:
@@ -83,12 +84,16 @@ class PatientDashboard:
 
         appointments = self.app.db.get_patient_appointments(self.user["linked_id"])
         if appointments:
-            doctor_name = appointments[0]["doctor_name"]
-            tk.Label(
-                self.display_frame,
-                text=f"Your Doctor: Dr. {doctor_name}",
-                font=("Arial", 12), bg="white"
-            ).pack(pady=20)
+            doctor_id = appointments[0]["doctor_id"]   # take first appointment
+            doctor = self.app.db.get_doctor_by_id(doctor_id)
+            if doctor:
+                tk.Label(
+                    self.display_frame,
+                    text=f"Dr. {doctor['full_name']} ({doctor['specialization']})",
+                    font=("Arial", 12), bg="white"
+                ).pack(pady=20)
+            else:
+                tk.Label(self.display_frame, text="❌ Doctor not found", bg="white").pack(pady=10)
         else:
             tk.Label(self.display_frame, text="❌ No doctor assigned", bg="white").pack(pady=10)
 
@@ -99,12 +104,15 @@ class PatientDashboard:
 
         history = self.app.db.get_patient_medical_history(self.user["linked_id"])
         if history:
+            cols = ("Date", "Medical History")
+            tree = ttk.Treeview(self.display_frame, columns=cols, show="headings", height=10)
+            for col in cols:
+                tree.heading(col, text=col)
+                tree.column(col, width=250)
+            tree.pack(fill="both", expand=True)
+
             for h in history:
-                tk.Label(
-                    self.display_frame,
-                    text=f"{h['record_date']} → {h['medical_history']}",
-                    font=("Arial", 12), bg="white"
-                ).pack(anchor="w", padx=20, pady=5)
+                tree.insert("", "end", values=(h["record_date"], h["medical_history"]))
         else:
             tk.Label(self.display_frame, text="❌ No medical history found", bg="white").pack(pady=10)
 

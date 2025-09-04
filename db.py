@@ -529,47 +529,71 @@ class Database:
         self.cursor.execute(query)
         return self.cursor.fetchall()
 
-        # ---------- Fetching patient appointment and medical records ----------
+           # ---------- Fetching patient appointment and medical records ----------
     def get_patient_appointments(self, patient_id):
+        """
+        Fetch appointment date and time for a patient.
+        """
         query = """
-        SELECT a.appointment_date, a.appointment_time,
-               CONCAT(d.first_name, ' ', d.last_name) AS doctor_name,
-               a.status, a.notes
-        FROM appointments a
-        JOIN doctors d ON a.doctor_id = d.id
-        WHERE a.patient_id = %s
-        ORDER BY a.appointment_date ASC
-       """
+            SELECT appointment_date, appointment_time, doctor_id
+            FROM appointments
+            WHERE patient_id = %s
+            ORDER BY appointment_date ASC, appointment_time ASC
+        """
         self.cursor.execute(query, (patient_id,))
         rows = self.cursor.fetchall()
+
         return [
-        {
-            "appointment_date": row[0],
-            "appointment_time": row[1],
-            "doctor_name": row[2],
-            "status": row[3],
-            "notes": row[4],
+            {
+                "appointment_date": row[0],
+                "appointment_time": row[1],
+                "doctor_id": row[2]
+            }
+            for row in rows
+        ]
+
+    def get_doctor_by_id(self, doctor_id):
+        """
+        Fetch doctor details from the doctors table by doctor_id.
+        """
+        query = """
+            SELECT first_name, last_name, specialization
+            FROM doctors
+            WHERE id = %s
+        """
+        self.cursor.execute(query, (doctor_id,))
+        row = self.cursor.fetchone()
+
+        if row:
+            return {
+                "full_name": f"{row[0]} {row[1]}",
+                "specialization": row[2]
+            }
+        return None
+    
+    def get_doctor_schedule(self, doctor_id):
+        query = """
+            SELECT CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
+               a.appointment_date, a.appointment_time, a.status
+        FROM appointments a
+        JOIN patients p ON a.patient_id = p.id
+        WHERE a.doctor_id = %s
+        ORDER BY a.appointment_date ASC, a.appointment_time ASC
+        """
+        self.cursor.execute(query, (doctor_id,))
+        rows = self.cursor.fetchall()
+        return [
+            {
+            "patient_name": row[0],
+            "appointment_date": row[1],
+            "appointment_time": row[2],
+            "status": row[3]
         }
         for row in rows
-    ]
-
-#     def get_patient_medical_history(self, patient_id):
-#         query = """
-#         SELECT record_date, medical_history
-#         FROM patients
-#         WHERE id = %s
-#        """
-#     self.cursor.execute(query, (patient_id,))
-#     rows = self.cursor.fetchall()
-#     return [
-#    {"record_date": row[0], "medical_history": row[1]}
-#         for row in rows
-#     ]
+      ]
 
 
-
-        #--------------closing------------
-
+    # -------------- Closing ------------
     def close(self):
         if self.cursor:
             self.cursor.close()

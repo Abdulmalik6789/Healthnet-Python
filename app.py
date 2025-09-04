@@ -18,6 +18,7 @@ from staff import StaffPage
 from db import Database
 from admin import AdminPage
 from patientdashboard import PatientDashboard
+from doctordashboard import DoctorDashboard
 
 
 class HealthNetApp:
@@ -141,6 +142,8 @@ class HealthNetApp:
         # Route based on role
         if user['role'] == "Patient":
             self.show_patient_dashboard()
+        elif user['role'] == "Doctor":
+            self.show_doctor_dashboard()
         elif user['role'] == "Admin":
             self.show_admin()
         else:
@@ -156,6 +159,17 @@ class HealthNetApp:
             return
         self.clear_window()
         self.current_page = PatientDashboard(self.root, self, self.current_user)
+
+    def show_doctor_dashboard(self):
+        """Show doctor dashboard"""
+        if not self.current_user:
+            self.show_login()
+            return
+        if self.current_user.get('role') != 'Doctor':
+            messagebox.showerror("Access Denied", "Doctor access required")
+            return
+        self.clear_window()
+        self.current_page = DoctorDashboard(self.root, self, self.current_user)
 
     def logout_user(self):
         """Logout current user"""
