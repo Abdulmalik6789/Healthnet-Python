@@ -272,3 +272,5 @@ class AdminPage:
     def generate_reports(self):
         """Generate system reports"""
         messagebox.showinfo("Generate Reports", "Report generation feature will be implemented here.")
+
+    
