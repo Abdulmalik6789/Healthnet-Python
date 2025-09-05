@@ -194,6 +194,8 @@ class Database:
     # ----------------------
     # ✅ PATIENT CRUD METHODS
     # ----------------------
+   
+    
     def add_patient(self, data):
         """Insert new patient"""
         try:
@@ -391,6 +393,25 @@ class Database:
         self.cursor.execute(query, (like_term, like_term, like_term, like_term, like_term))
         return self.cursor.fetchall()
     
+    def get_doctor_by_id(self, doctor_id):
+        """
+        Fetch a doctor's details by their ID.
+        """
+        query = """
+            SELECT first_name, last_name, specialization
+            FROM doctors
+            WHERE id = %s
+        """
+        self.cursor.execute(query, (doctor_id,))
+        row = self.cursor.fetchone()
+    
+        if row:
+            return {
+                "full_name": f"{row['first_name']} {row['last_name']}",
+                "specialization": row["specialization"]
+            }
+        return None
+    
    # ---------------- STAFF METHODS ----------------
     def add_staff(self, data):
         query = """
@@ -530,10 +551,8 @@ class Database:
         return self.cursor.fetchall()
 
            # ---------- Fetching patient appointment and medical records ----------
+    
     def get_patient_appointments(self, patient_id):
-        """
-        Fetch appointment date and time for a patient.
-        """
         query = """
             SELECT appointment_date, appointment_time, doctor_id
             FROM appointments
@@ -542,34 +561,18 @@ class Database:
         """
         self.cursor.execute(query, (patient_id,))
         rows = self.cursor.fetchall()
-
+    
+        print(f"DEBUG - Fetched rows for patient {patient_id}: {rows}") 
+    
         return [
             {
-                "appointment_date": row[0],
-                "appointment_time": row[1],
-                "doctor_id": row[2]
+                "appointment_date": str(row["appointment_date"]) if row["appointment_date"] else None,
+                "appointment_time": str(row["appointment_time"]) if row["appointment_time"] else None,
+                "doctor_id": row["doctor_id"]
             }
             for row in rows
         ]
-
-    def get_doctor_by_id(self, doctor_id):
-        """
-        Fetch doctor details from the doctors table by doctor_id.
-        """
-        query = """
-            SELECT first_name, last_name, specialization
-            FROM doctors
-            WHERE id = %s
-        """
-        self.cursor.execute(query, (doctor_id,))
-        row = self.cursor.fetchone()
-
-        if row:
-            return {
-                "full_name": f"{row[0]} {row[1]}",
-                "specialization": row[2]
-            }
-        return None
+    
     
     def get_doctor_schedule(self, doctor_id):
         query = """
@@ -584,15 +587,37 @@ class Database:
         rows = self.cursor.fetchall()
         return [
             {
-            "patient_name": row[0],
-            "appointment_date": row[1],
-            "appointment_time": row[2],
-            "status": row[3]
+            "patient_name": row["patient_name"],
+            "appointment_date": row["appointment_date"],
+            "appointment_time": row["appointment_time"],
+            "status": row["status"]
         }
         for row in rows
       ]
+        
+        
+        
+    def get_patient_medical_history(self, patient_id):
+        query = """
+            SELECT created_at, medical_history
+            FROM patients
+            WHERE id = %s
+        """
+        self.cursor.execute(query, (patient_id,))
+        row = self.cursor.fetchone()
+    
+        if row:
+            print(f"DEBUG - Medical history row: {row}")  # <-- helpful for debugging
+            return [{
+                "record_date": row["created_at"],
+                "medical_history": row["medical_history"]
+            }]
+        else:
+            print(f"DEBUG - No medical history found for patient {patient_id}")
+            return []
+    
 
-
+  
     # -------------- Closing ------------
     def close(self):
         if self.cursor:

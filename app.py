@@ -75,6 +75,7 @@ class HealthNetApp:
     def show_login(self):
         """Show login page"""
         self.clear_window()
+        self.current_user = None  # >>> CHANGED: hard reset session to avoid leaking old user data
         self.current_page = LoginPage(self.root, self)
     
     def show_signup(self):
@@ -134,17 +135,45 @@ class HealthNetApp:
             return
         self.clear_window()
         self.current_page = AdminPage(self.root, self)
+
+    # >>> NEW: small helper to enrich the logged-in user with domain IDs safely
+    def _enrich_user_context(self, user_dict: dict) -> dict:
+        """Attach domain-specific ids (patient_id / doctor_id) when available, without hard dependencies."""
+        user = dict(user_dict)  # shallow copy to avoid accidental external mutation
+
+        try:
+            role = user.get("role")
+            base_user_id = user.get("id")
+
+            if role == "Patient" and "patient_id" not in user and base_user_id is not None:
+                if hasattr(self.db, "get_patient_by_user_id"):
+                    patient = self.db.get_patient_by_user_id(base_user_id)
+                    if patient and isinstance(patient, dict) and "id" in patient:
+                        user["patient_id"] = patient["id"]
+
+            if role == "Doctor" and "doctor_id" not in user and base_user_id is not None:
+                if hasattr(self.db, "get_doctor_by_user_id"):
+                    doctor = self.db.get_doctor_by_user_id(base_user_id)
+                    if doctor and isinstance(doctor, dict) and "id" in doctor:
+                        user["doctor_id"] = doctor["id"]
+        except Exception as e:
+            # Non-fatal: keep original user dict if enrichment fails
+            print(f"DEBUG - _enrich_user_context failed: {e}")
+
+        return user
     
     def login_user(self, user):
         """Set current user after successful login"""
-        self.current_user = user
+        # >>> CHANGED: ensure we always work with a fresh, enriched user context
+        self.current_user = self._enrich_user_context(user)
 
         # Route based on role
-        if user['role'] == "Patient":
+        role = self.current_user.get('role')
+        if role == "Patient":
             self.show_patient_dashboard()
-        elif user['role'] == "Doctor":
+        elif role == "Doctor":
             self.show_doctor_dashboard()
-        elif user['role'] == "Admin":
+        elif role == "Admin":
             self.show_admin()
         else:
             self.show_dashboard()
@@ -158,6 +187,7 @@ class HealthNetApp:
             messagebox.showerror("Access Denied", "Patient access required")
             return
         self.clear_window()
+        # >>> NOTE: PatientDashboard continues to receive the authoritative current_user
         self.current_page = PatientDashboard(self.root, self, self.current_user)
 
     def show_doctor_dashboard(self):

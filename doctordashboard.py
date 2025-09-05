@@ -60,7 +60,7 @@ class DoctorDashboard:
         label = tk.Label(self.display_frame, text="📅 My Schedule", font=("Arial", 14, "bold"), bg="white")
         label.pack(pady=10)
 
-        schedule = self.app.db.get_doctor_schedule(self.user["linked_id"])  # Fetch from DB
+        schedule = self.app.db.get_doctor_schedule(self.user["id"])  # Fetch from DB
         if schedule:
             cols = ("Patient Name", "Date", "Time", "Status")
             tree = ttk.Treeview(self.display_frame, columns=cols, show="headings", height=10)
@@ -80,7 +80,7 @@ class DoctorDashboard:
         label = tk.Label(self.display_frame, text="🩺 My Specialization", font=("Arial", 14, "bold"), bg="white")
         label.pack(pady=10)
 
-        doctor = self.app.db.get_doctor_by_id(self.user["linked_id"])
+        doctor = self.app.db.get_doctor_by_id(self.user["id"])
         if doctor:
             tk.Label(
                 self.display_frame,
