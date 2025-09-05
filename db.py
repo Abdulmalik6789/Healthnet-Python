@@ -616,6 +616,27 @@ class Database:
             print(f"DEBUG - No medical history found for patient {patient_id}")
             return []
     
+    def get_system_statistics(self):
+         try:
+            self.cursor.execute("""
+             SELECT 
+                (SELECT COUNT(*) FROM doctors) AS total_doctors,
+                (SELECT COUNT(*) FROM patients) AS total_patients,
+                (SELECT COUNT(*) FROM appointments) AS total_appointments
+
+             """)
+            result = self.cursor.fetchone()
+            return {
+                "doctors": result[0],
+                "patients": result[1], 
+                 "appointments": result[2]
+                }
+         except Exception as e:
+                print(f"Error fetching system statistics: {e}")
+                return {"doctors": 0, "patients": 0, "appointments": 0}   
+
+
+    
 
   
     # -------------- Closing ------------
