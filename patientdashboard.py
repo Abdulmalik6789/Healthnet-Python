@@ -66,7 +66,9 @@ class PatientDashboard:
         label = tk.Label(self.display_frame, text="My Appointments", font=("Arial", 14, "bold"), bg="white")
         label.pack(pady=10)
         print("DEBUG - self.user contents:", self.user) 
-        appointments = self.app.db.get_patient_appointments(self.user["id"])
+        print("DEBUG - self.user object:", self.user)
+        print("DEBUG - Using patient_id:", self.user.get("patient_id"))
+        appointments = self.app.db.get_patient_appointments(self.user["patient_id"])
         if appointments:
             for a in appointments:
                 tk.Label(
@@ -102,7 +104,7 @@ class PatientDashboard:
         label = tk.Label(self.display_frame, text="Medical History", font=("Arial", 14, "bold"), bg="white")
         label.pack(pady=10)
 
-        history = self.app.db.get_patient_medical_history(self.user["id"])
+        history = self.app.db.get_patient_medical_history(self.user["patient_id"])
         if history:
             cols = ("Date", "Medical History")
             tree = ttk.Treeview(self.display_frame, columns=cols, show="headings", height=10)
